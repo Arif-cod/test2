@@ -1,0 +1,142 @@
+
+import pandas as pd
+from datetime import datetime
+import matplotlib.pyplot as plt
+S2026 = pd.read_csv("https://football-data.co.uk/mmz4281/2526/E0.csv")
+S2025 = pd.read_csv("https://football-data.co.uk/mmz4281/2425/E0.csv")
+S2024 = pd.read_csv("https://football-data.co.uk/mmz4281/2324/E0.csv")
+S2023 = pd.read_csv("https://football-data.co.uk/mmz4281/2223/E0.csv")
+S2022 = pd.read_csv("https://football-data.co.uk/mmz4281/2122/E0.csv")
+S2021 = pd.read_csv("https://football-data.co.uk/mmz4281/2021/E0.csv")
+S2020 = pd.read_csv("https://football-data.co.uk/mmz4281/1920/E0.csv")
+S2019 = pd.read_csv("https://football-data.co.uk/mmz4281/1819/E0.csv")
+S2018 = pd.read_csv("https://football-data.co.uk/mmz4281/1718/E0.csv")
+S2017 = pd.read_csv("https://football-data.co.uk/mmz4281/1617/E0.csv")
+S2016 = pd.read_csv("https://football-data.co.uk/mmz4281/1516/E0.csv")
+S2015 = pd.read_csv("https://football-data.co.uk/mmz4281/1415/E0.csv")
+S2014 = pd.read_csv("https://football-data.co.uk/mmz4281/1314/E0.csv")
+S2013 = pd.read_csv("https://football-data.co.uk/mmz4281/1213/E0.csv")
+S2012 = pd.read_csv("https://football-data.co.uk/mmz4281/1112/E0.csv")
+S2011 = pd.read_csv("https://football-data.co.uk/mmz4281/1011/E0.csv")
+S2010 = pd.read_csv("https://football-data.co.uk/mmz4281/0910/E0.csv")
+S2009 = pd.read_csv("https://football-data.co.uk/mmz4281/0809/E0.csv")
+S2008 = pd.read_csv("https://football-data.co.uk/mmz4281/0708/E0.csv")
+S2007 = pd.read_csv("https://football-data.co.uk/mmz4281/0607/E0.csv")
+S2006 = pd.read_csv("https://football-data.co.uk/mmz4281/0506/E0.csv")
+S2005 = pd.read_csv("https://football-data.co.uk/mmz4281/0405/E0.csv", encoding="ISO-8859-1",      # <-- FIX 1
+    on_bad_lines="skip")
+S2004 = pd.read_csv("https://football-data.co.uk/mmz4281/0304/E0.csv", encoding="ISO-8859-1",      # <-- FIX 1
+    on_bad_lines="skip")
+S2003 = pd.read_csv("https://football-data.co.uk/mmz4281/0203/E0.csv", encoding="ISO-8859-1",      # <-- FIX 1
+    on_bad_lines="skip")
+
+combined_1 = pd.concat([S2003, S2004, S2005, S2006, S2007, S2008, S2009], ignore_index=True)
+combined_2 = pd.concat([S2010, S2011, S2012, S2013, S2014, S2015, S2016, S2017,
+                         S2018, S2019, S2020, S2021, S2022, S2023, S2024, S2025, S2026], ignore_index=True)
+
+
+# FIX: Convert Date to datetime BEFORE using .dt
+# -------------------------------
+combined_1["Date"] = combined_1["Date"].astype(str).str.strip()
+combined_2["Date"] = combined_2["Date"].astype(str).str.strip()
+combined_1["Date"] = pd.to_datetime(combined_1["Date"], format='mixed', dayfirst=True, errors="coerce")
+combined_2["Date"] = pd.to_datetime(combined_2["Date"], format='mixed', dayfirst=True, errors="coerce")
+#Concat all DF's
+all_df = pd.concat([combined_1, combined_2], ignore_index=True)
+
+# Extract year
+all_df["Year"] = all_df["Date"].dt.year .astype("Int64")
+
+#all_df["Date"] = all_df["Date"].dt.strftime("%Y-%m-%d")
+all_df["Date"] = all_df["Date"].dt.date
+
+#=================================================================================================#
+#Referee that Matches was Join
+referee_summary = all_df.groupby("Referee").agg(
+    Total_Matches=("Referee", "size"),
+    Years_Worked=("Year", lambda x: sorted(x.dropna().unique()))
+).sort_values(by="Total_Matches", ascending=False)
+print(referee_summary)
+#=================================================================================================#
+#Cards & Teams
+home_cards = (
+    all_df.groupby("HomeTeam")[["HY", "HR"]]
+          .sum()
+          .reset_index()
+          .rename(columns={
+              "HomeTeam": "Team",
+              "HY": "Home_Yellow_Cards",
+              "HR": "Home_Red_Cards"
+          })
+)
+
+print(home_cards)
+
+
+# Total home cards
+home_cards = all_df.groupby("HomeTeam")[["HY", "HR"]].sum()
+home_cards.columns = ["HY_home", "HR_home"]
+
+# Total away cards
+away_cards = all_df.groupby("AwayTeam")[["AY", "AR"]].sum()
+away_cards.columns = ["AY_away", "AR_away"]
+
+# Combine
+total_cards = (
+    home_cards.join(away_cards, how="outer")
+              .fillna(0)
+              .reset_index()
+              .rename(columns={"index": "Team"})
+)
+
+# Total cards
+total_cards["Total_Yellow"] = total_cards["HY_home"] + total_cards["AY_away"]
+total_cards["Total_Red"] = total_cards["HR_home"] + total_cards["AR_away"]
+
+print(total_cards)
+
+
+
+
+#=========================================================================================================================#
+
+#Columns Names:
+column_map = {
+    "Div": "Division",
+    "Date": "Date",
+    "HomeTeam": "Home Team",
+    "AwayTeam": "Away Team",
+    "FTHG": "Full Time Home Goals",
+    "FTAG": "Full Time Away Goals",
+    "FTR": "Full Time Result",
+    "HTHG": "Half Time Home Goals",
+    "HTAG": "Half Time Away Goals",
+    "HTR": "Half Time Result",
+    "Referee": "Referee",
+    "HS": "Home Shots",
+    "AS": "Away Shots",
+    "HST": "Home Shots on Target",
+    "AST": "Away Shots on Target",
+    "HF": "Home Fouls",
+    "AF": "Away Fouls",
+    "HC": "Home Corners",
+    "AC": "Away Corners",
+    "HY": "Home Yellow Cards",
+    "AY": "Away Yellow Cards",
+    "HR": "Home Red Cards",
+    "AR": "Away Red Cards",
+}
+
+all_df = all_df.rename(columns=column_map)
+
+
+
+#print
+#print(all_df["Date"])
+#print(all_df["Year"])
+print(all_df.tail(70))
+print(all_df.head(70))
+
+
+#Save Excel as file at Desktop:
+#New = all_df.to_excel("output.xlsx", index=False)
